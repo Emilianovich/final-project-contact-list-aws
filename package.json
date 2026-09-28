@@ -1,0 +1,1 @@
+{"name":"contactos","private":true,"packageManager":"pnpm@11.1.2","scripts":{"dev":"pnpm --filter @contactos/web dev","build":"pnpm --filter @contactos/web build","test":"pnpm --filter @contactos/web test"}}
