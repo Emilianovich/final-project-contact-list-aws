@@ -4,12 +4,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from '@tanstack/react-form';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Toaster, toast } from 'sonner';
-import { UsersRound, Trash2, Plus, Search, Globe2, ArrowUpRight, X, Pencil, RotateCcw, Mail, Phone, BookOpen, ChevronRight, Palette, Check, Leaf } from 'lucide-react';
+import { UsersRound, Trash2, Plus, Search, Globe2, ArrowUpRight, X, Pencil, RotateCcw, Mail, Phone, BookOpen, ChevronRight, Palette, Check, LogOut } from 'lucide-react';
 import { getCountryCallingCode, parsePhoneNumberFromString, getExampleNumber, type CountryCode } from 'libphonenumber-js/max';
 import examples from 'libphonenumber-js/mobile/examples';
 import { countryCodes, contactInputSchema, themes, type Contact, type ContactInput } from '@contactos/contracts';
 import { repository, filterContacts, DuplicateContactError, formatDate } from './data';
+import { CountryPicker } from './CountryPicker';
 import { usePreferences } from './store';
+import { logout, useAuth } from './auth';
 
 const names = new Intl.DisplayNames(['es'],{type:'region'});
 const countries = countryCodes.map(code=>({code,name:names.of(code) ?? code})).sort((a,b)=>a.name.localeCompare(b.name,'es'));
@@ -54,11 +56,8 @@ function ContactForm({contact,onClose,onSaved}:{contact?:Contact;onClose:()=>voi
             onChange={e=>field.handleChange(e.target.value)} onBlur={field.handleBlur}/>
           <span id={key+'-error'} className="field-error">{field.state.meta.errors.map(e=>e?.message).join(' ')}</span>
         </label>}</form.Field>)}
-        <form.Field name="country">{field=><label className="field">País
-          <select value={field.state.value} onChange={e=>{field.handleChange(e.target.value);setConflict('');}} onBlur={field.handleBlur}>
-            {countries.map(c=><option key={c.code} value={c.code}>{flag(c.code)} {c.name} (+{getCountryCallingCode(c.code)})</option>)}
-          </select>
-        </label>}</form.Field>
+        <form.Field name="country">{field=><CountryPicker value={field.state.value}
+          onChange={value=>{field.handleChange(value);setConflict('');}} onBlur={field.handleBlur}/>}</form.Field>
         <form.Subscribe selector={state=>state.values.country}>{country=><form.Field name="phone">{field=><label className="field">
           Número de teléfono
           <div className="phone-input"><span>+{getCountryCallingCode(country as CountryCode)}</span>
@@ -69,7 +68,7 @@ function ContactForm({contact,onClose,onSaved}:{contact?:Contact;onClose:()=>voi
           <span className="field-error" id="phone-error">{conflict || field.state.meta.errors.map(e=>e?.message).join(' ')}</span>
           <small>Escribe el número local, sin repetir el prefijo.</small>
         </label>}</form.Field>}</form.Subscribe>
-        <div className="modal-actions"><button type="button" className="button secondary" onClick={close}>Cancelar</button>
+        <div className="modal-actions contact-form-actions"><button type="button" className="button secondary" onClick={close}>Cancelar</button>
           <button className="button primary" disabled={save.isPending || restore.isPending}>{save.isPending?'Guardando…':contact?'Guardar cambios':'Crear contacto'}<Check size={17}/></button></div>
       </form>
     </Modal>
@@ -88,6 +87,7 @@ export function App({trash}:{trash:boolean}) {
   const navigate = useNavigate();
   const client = useQueryClient();
   const {theme,setTheme} = usePreferences();
+  const session=useAuth(state=>state.session);
   const [editor,setEditor] = useState<Contact|'new'|null>(null);
   const [detail,setDetail] = useState<Contact|null>(null);
   const [deleting,setDeleting] = useState<Contact|null>(null);
@@ -115,13 +115,13 @@ export function App({trash}:{trash:boolean}) {
       </nav>
       <div className="sidebar-bottom">
         <div className="theme-control"><button className="theme-button" onClick={()=>setThemeOpen(true)}><Palette size={19}/><span>Apariencia<small>{themes.find(([key])=>key===theme)?.[1]}</small></span><ChevronRight size={16}/></button></div>
-        <div className="profile"><div className="avatar mini">YO</div><div>Mi espacio<small>Libreta personal</small></div><Leaf size={17}/></div>
+        <button className="profile profile-button" onClick={()=>void logout()} title="Cerrar sesión"><div className="avatar mini">{session?.user.email.slice(0,2).toUpperCase()}</div><div>{session?.user.email}<small>Cerrar sesión</small></div><LogOut size={17}/></button>
       </div>
     </aside>
     <div className="workspace">
       <header className="topbar"><span>Mi espacio <ChevronRight size={14}/> <strong>{trash?'Papelera':'Contactos'}</strong></span><span className="local-label"><span/>Guardado en este dispositivo</span></header>
       <main>
-        <div className="page-heading"><div><div className="eyebrow">{trash?'SIEMPRE PUEDES VOLVER':'CONEXIONES QUE IMPORTAN'}</div><h1>{trash?'Tu papelera':'Tus personas, cerca.'}</h1><p>{trash?'Los contactos que eliminaste, listos para recuperar.':'Un lugar para todas las personas que forman parte de tu mundo.'}</p></div>
+        <div className="page-heading"><div><h1>{trash?'Tu papelera':'Tus personas, cerca.'}</h1><p>{trash?'Los contactos que eliminaste, listos para recuperar.':'Un lugar para todas las personas que forman parte de tu mundo.'}</p></div>
           {!trash && <button className="button primary" onClick={()=>setEditor('new')}><Plus size={19}/>Nuevo contacto</button>}
         </div>
         <div className="overview"><div className="overview-icon">{trash?<Trash2 size={26}/>:<BookOpen size={26}/>}</div>
@@ -131,7 +131,7 @@ export function App({trash}:{trash:boolean}) {
         <section className="contact-section" aria-label={trash?'Contactos eliminados':'Lista de contactos'}>
           <div className="section-title"><h2>{trash?'Contactos eliminados':'Todos los contactos'}<span>{shown.length}</span></h2><span className="sort-label">Ordenados de la A a la Z</span></div>
           <div className="filters"><label className="search"><Search size={19}/><input aria-label="Buscar por nombre o correo" placeholder="Buscar por nombre o correo…" value={q??''} onChange={e=>updateSearch({q:e.target.value})}/>{q && <button aria-label="Limpiar búsqueda" onClick={()=>updateSearch({q:''})}><X size={16}/></button>}</label>
-            <label className="country-filter"><Globe2 size={18}/><select aria-label="Filtrar por país" value={country??''} onChange={e=>updateSearch({country:e.target.value})}><option value="">Todos los países</option>{countries.map(c=><option key={c.code} value={c.code}>{c.name}</option>)}</select></label>
+            <CountryPicker filter value={country??''} onChange={value=>updateSearch({country:value})}/>
           </div>
           {contacts.isPending?<div className="empty" role="status">Cargando tu libreta…</div>:contacts.isError?<div className="empty"><h3>No pudimos abrir tu libreta</h3><p>Comprueba que tu navegador permite guardar datos.</p><button className="button secondary" onClick={()=>void contacts.refetch()}>Reintentar</button></div>:shown.length===0?<div className="empty"><div className="empty-icon">{trash?<Trash2/>:<UsersRound/>}</div><h3>{q||country?'No encontramos coincidencias':trash?'Una papelera vacía, por ahora':'Tu próxima conexión empieza aquí'}</h3><p>{q||country?'Prueba otro nombre, correo o país.':trash?'Los contactos que elimines aparecerán aquí.':'Añade tu primer contacto y empieza a llenar tu libreta.'}</p>{q||country?<button className="button secondary" onClick={()=>updateSearch({q:'',country:''})}>Limpiar filtros</button>:!trash&&<button className="button primary" onClick={()=>setEditor('new')}><Plus size={17}/>Crear mi primer contacto</button>}</div>:
           <div className="table-wrap"><table><thead><tr><th>Nombre</th><th>Correo electrónico</th><th>Teléfono</th><th>País</th><th><span className="sr-only">Acciones</span></th></tr></thead><tbody>{shown.map((c,i)=><tr key={c.id}>

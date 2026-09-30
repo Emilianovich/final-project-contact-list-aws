@@ -1,63 +1,87 @@
 # Cerca · Libreta de contactos
 
-Fase 1: aplicación local en React + TypeScript, Vite, TanStack Router, Query
-y Form, Zustand, Zod, Temporal e IndexedDB. Fuente Arima alojada localmente.
+Monorepo de la aplicación de contactos. React, NestJS y PostgreSQL trabajan
+juntos, y cada usuario solo puede acceder a sus propios contactos.
 
-## Desarrollo
+## Prueba local con Docker
+
+Requiere Docker Desktop. Copia `.env.example` a `.env` y sustituye las
+contraseñas y secretos. Los secretos JWT deben ser distintos y tener al menos
+32 caracteres.
+
+```sh
+cp .env.example .env
+docker compose up --build --detach
+docker compose ps
+```
+
+Abre `http://localhost:8080`. En este equipo la API usa
+`http://localhost:3001` porque el puerto 3000 está ocupado; puedes elegir otro
+valor mediante `API_PORT` y `API_BASE_URL`.
+
+Compose representa exclusivamente el entorno local:
+
+- `web`: imagen independiente de React/Nginx, puerto 8080.
+- `api`: imagen independiente de NestJS, puerto configurable.
+- `db`: PostgreSQL 16 con volumen persistente y sin puerto público.
+- `migrate`: tarea puntual que aplica el esquema antes de iniciar la API.
+
+`docker compose down` detiene el entorno y conserva los datos. El comando
+`docker compose down --volumes` también elimina la base local.
+
+## Autenticación
+
+La API usa `@nestjs/jwt` directamente, sin Passport ni cookies. Registro y
+login devuelven un access token de 15 minutos y un refresh token de 7 días.
+El frontend los guarda en `sessionStorage`, rota el refresh token y los envía
+como Bearer/JSON. El backend valida la sesión en PostgreSQL y aplica el usuario
+autenticado a cada operación.
+
+Este esquema funciona por HTTP para pruebas, pero HTTP no cifra contraseñas ni
+tokens durante el tránsito. Usa datos ficticios hasta colocar HTTPS delante de
+los servicios.
+
+## ECS/Fargate y RDS
+
+Web y API tienen Dockerfiles independientes y se desplegarán como servicios
+ECS separados. `API_BASE_URL` se inyecta al contenedor web al arrancar, por lo
+que cambiar el endpoint no obliga a reconstruir su imagen.
+
+La API recibe configuración por variables de entorno validadas al iniciar.
+Para RDS cambia `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, usa
+`DB_SSL=true` y monta el certificado en `DB_SSL_CA_PATH`. Guarda contraseñas y
+secretos JWT en AWS Secrets Manager y referéncialos desde la tarea ECS.
+
+SQL para RDS:
+
+1. `database/00-create-database.sql`: plantilla administrativa opcional.
+2. `database/01-schema.sql`: tablas, restricciones e índices.
+3. `database/02-countries.sql`: catálogo completo de países y prefijos.
+
+En RDS normalmente crearás la base desde AWS y ejecutarás los archivos 01 y 02
+conectado a ella. La tarea local `migrate` realiza ambas operaciones de forma
+idempotente.
+
+## Desarrollo y pruebas
 
 Requiere Node 24 y pnpm 11.1.2.
 
 ```sh
 pnpm install
-pnpm dev
 pnpm build
 pnpm test
 ```
 
-## Monorepo
+Las pruebas API usan HTTP y PostgreSQL reales. Cubren registro/login,
+expiración y rotación JWT, logout, CORS, aislamiento entre usuarios, CRUD,
+papelera, filtros, validación telefónica, conflictos concurrentes y
+restricciones directas de PostgreSQL. El contrato está en
+`docs/api-contract.md`.
 
-- apps/web: SPA y Dockerfile del frontend.
-- apps/api: espacio reservado para NestJS en fase 2.
-- packages/contracts: contratos Zod y tipos compartidos.
-- docs/schema.sql: propuesta Postgres, sin ejecutar en esta fase.
-- compose.yaml: contenedor web; api y Postgres se añadirán en fase 2.
+## Estructura
 
-Cada aplicación tendrá su propio contenedor. Los builds usan la raíz del
-monorepo como contexto para consumir los contratos compartidos.
-
-```sh
-docker compose up --build -d
-```
-
-Abre http://localhost:8080. Nginx soporta acceso directo a /papelera.
-
-## Reglas y alcance
-
-Nombre, correo, país ISO y teléfono E.164. Teléfono único por usuario
-incluyendo papelera. Borrado lógico y restauración sin caducidad.
-Búsqueda parcial por nombre o correo, insensible a mayúsculas y acentos,
-combinable con filtro de país en ambas vistas. Ocho temas persistentes.
-
-La libreta comienza vacía. Datos en IndexedDB; apariencia en localStorage.
-No hay backend, cuentas reales, sincronización ni eliminación definitiva.
-Los datos dependen del navegador y origen; borrar sus datos borra la libreta.
-Cambiar del servidor Vite al contenedor supone otro origen y otra libreta.
-
-El repositorio expone list/save/remove/restore para sustituirlo por HTTP en
-fase 2. IndexedDB usa transacciones y un índice único compuesto para evitar
-duplicados concurrentes. Las fechas se guardan como instantes ISO UTC.
-
-## Validación
-
-Pruebas de normalización, país, duplicados activos/eliminados, restauración,
-filtros combinados y concurrencia. TypeScript se comprueba en cada build.
-
-## Estado de verificación
-
-- Compilación de producción y comprobación TypeScript: correctas.
-- Pruebas automatizadas de reglas de negocio: correctas.
-- Servidor local: respuesta HTTP 200.
-- Revisión visual interactiva: pendiente; la herramienta de control del
-  navegador no recibió permiso para usar Helium.
-- Imagen Docker: pendiente de ejecutar; el servicio Docker de este equipo
-  devuelve acceso denegado. El CLI tampoco tiene disponible Compose.
+- `apps/web`: React, Vite, TanStack Router/Query/Form, Zustand y ocho temas.
+- `apps/api`: NestJS modular, JWT, Drizzle y PostgreSQL.
+- `packages/contracts`: esquemas Zod y tipos compartidos.
+- `database`: SQL portable para Postgres/RDS.
+- `compose.yaml`: orquestación exclusiva de pruebas locales.

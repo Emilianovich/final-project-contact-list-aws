@@ -1,9 +1,7 @@
-# API — reservada para la fase 2
+# API
 
-Esta carpeta alojará la aplicación NestJS y su Dockerfile independiente.
-No contiene un servidor ni simula autenticación en la fase 1.
+Backend NestJS de Cerca. Los módulos de configuración, base de datos,
+autenticación, usuarios, contactos y salud están separados en `src`.
 
-Plan: Nest JWT sin Passport, Zod, Drizzle, Postgres y CORS restringido al
-frontend. El futuro servicio api usará el contexto raíz del monorepo para
-consumir @contactos/contracts. Postgres será otro servicio independiente.
-El contenedor web solo servirá los archivos estáticos de Vite.
+La autenticación utiliza `@nestjs/jwt` directamente, sin Passport. Consulta
+el README de la raíz para ejecutar el entorno completo y configurar RDS.

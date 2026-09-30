@@ -1,6 +1,8 @@
 import { openDB, type DBSchema } from 'idb';
 import { Temporal } from '@js-temporal/polyfill';
 import { normalizeContact, type Contact, type ContactInput } from '@contactos/contracts';
+import { request } from './auth';
+import { ApiError } from './api';
 
 interface ContactDB extends DBSchema {
   contacts: { key: string; value: Contact; indexes: { 'owner-phone': [string,string] } };
@@ -20,7 +22,7 @@ export interface ContactRepository {
   remove(id: string): Promise<void>;
   restore(id: string): Promise<void>;
 }
-export const repository: ContactRepository = {
+const localRepository: ContactRepository = {
   async list() { return (await (await db()).getAll('contacts')).filter(c => c.userId === userId); },
   async save(input, id) {
     const data = normalizeContact(input);
@@ -44,6 +46,25 @@ export const repository: ContactRepository = {
   async remove(id) { await setDeleted(id, now()); },
   async restore(id) { await setDeleted(id, null); },
 };
+const httpRepository:ContactRepository={
+  async list(){
+    const [active,deleted]=await Promise.all([
+      request<{items:Contact[]}>('/contacts?status=active'),
+      request<{items:Contact[]}>('/contacts?status=deleted'),
+    ]);return [...active.items,...deleted.items];
+  },
+  async save(input,id){
+    try{return await request<Contact>(id?`/contacts/${id}`:'/contacts',{method:id?'PATCH':'POST',body:JSON.stringify(input)});}
+    catch(error){
+      if(error instanceof ApiError&&(error.code==='PHONE_EXISTS'||error.code==='PHONE_DELETED')&&error.contactId){
+        const duplicate=await request<Contact>(`/contacts/${error.contactId}`);throw new DuplicateContactError(duplicate);
+      }throw error;
+    }
+  },
+  async remove(id){await request(`/contacts/${id}`,{method:'DELETE'});},
+  async restore(id){await request(`/contacts/${id}/restore`,{method:'POST'});},
+};
+export const repository:ContactRepository=import.meta.env.MODE==='test'?localRepository:httpRepository;
 async function setDeleted(id: string, deletedAt: string | null) {
   const database = await db();
   const tx = database.transaction('contacts','readwrite');
