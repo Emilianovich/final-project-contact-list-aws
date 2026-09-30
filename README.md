@@ -47,6 +47,11 @@ Web y API tienen Dockerfiles independientes y se desplegarán como servicios
 ECS separados. `API_BASE_URL` se inyecta al contenedor web al arrancar, por lo
 que cambiar el endpoint no obliga a reconstruir su imagen.
 
+La guía de construcción, publicación en ECR y ejecución en Fargate está en
+`docs/aws-deployment.md`. Las imágenes siempre se construyen usando la raíz del
+monorepo como contexto; ECS consume las imágenes publicadas y no los
+Dockerfiles directamente.
+
 La API recibe configuración por variables de entorno validadas al iniciar.
 Para RDS cambia `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, usa
 `DB_SSL=true` y monta el certificado en `DB_SSL_CA_PATH`. Guarda contraseñas y
