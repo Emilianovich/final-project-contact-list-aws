@@ -41,7 +41,8 @@ deliberada.
 ## Servicios y migración
 
 - La definición de tarea web usa `contact-list:web-<tag>`, puerto 8080 y la variable
-  `API_BASE_URL` con una URL accesible desde el navegador del usuario.
+  `BACKEND_UPSTREAM` con una URL accesible desde el contenedor web. Nginx reenvía
+  `/api/*` a esa URL; el navegador solo se comunica con el frontend.
 - La definición de tarea API usa `contact-list:api-<tag>`, puerto 3000, variables de
   RDS/CORS y secretos obtenidos de Secrets Manager.
 - Antes de actualizar el servicio API, ejecuta una tarea puntual usando la
@@ -61,15 +62,15 @@ security group permite el puerto, pero la IP cambia cuando ECS reemplaza la
 tarea. Además, el JavaScript del frontend se ejecuta en el navegador: no puede
 usar un nombre privado de Service Connect o Cloud Map como `api:3000`.
 
-Para una prueba temporal sin load balancer puedes:
+Para una prueba sin load balancer, el frontend puede actuar como proxy. Configura
+`BACKEND_UPSTREAM` con la IP privada actual del backend, por ejemplo
+`http://10.0.2.42:3000`, y permite TCP 3000 en el SG del backend únicamente desde
+el SG del frontend. Para una URL interna estable al reemplazar tareas, crea un ECS
+Service con Service Connect o Cloud Map y usa su nombre de descubrimiento como
+`BACKEND_UPSTREAM`.
 
-1. desplegar una sola tarea API con IP pública y permitir el puerto 3000;
-2. colocar `http://<IP-PUBLICA-API>:3000` en `API_BASE_URL` de la tarea web;
-3. colocar `http://<IP-PUBLICA-WEB>:8080` en `FRONTEND_ORIGIN` de la API;
-4. reiniciar ambas tareas si alguna IP cambia.
-
-Esto funciona para una prueba, pero no crea endpoints estables. Para un entorno
-duradero necesitarás un ALB, API Gateway u otro punto de entrada estable y TLS.
+Para un entorno duradero necesitarás un ALB, API Gateway u otro punto de entrada
+estable y TLS.
 
 Para evitar depender de la IP efímera de la tarea web durante una prueba puntual,
 la API permite `CORS_ALLOW_ANY_ORIGIN=true`. Úsalo únicamente mientras se accede
