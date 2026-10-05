@@ -32,15 +32,17 @@ aws ecr get-login-password --region "$AWS_REGION" |
 REGISTRY="$ECR_REGISTRY" TAG="$IMAGE_TAG" docker buildx bake --push
 ```
 
-`docker-bake.hcl` fija el contexto correcto y genera imágenes `linux/amd64`,
-compatibles con una tarea Fargate configurada para X86_64. Si la tarea usa
-ARM64, cambia `platforms` a `linux/arm64` de forma deliberada.
+`docker-bake.hcl` fija el contexto correcto y publica ambas imágenes en el
+mismo repositorio ECR, diferenciadas como `web-<tag>` y `api-<tag>`. También
+genera imágenes `linux/amd64`, compatibles con una tarea Fargate configurada
+para X86_64. Si la tarea usa ARM64, cambia `platforms` a `linux/arm64` de forma
+deliberada.
 
 ## Servicios y migración
 
-- La definición de tarea web usa `cerca-web:<tag>`, puerto 8080 y la variable
+- La definición de tarea web usa `contact-list:web-<tag>`, puerto 8080 y la variable
   `API_BASE_URL` con una URL accesible desde el navegador del usuario.
-- La definición de tarea API usa `cerca-api:<tag>`, puerto 3000, variables de
+- La definición de tarea API usa `contact-list:api-<tag>`, puerto 3000, variables de
   RDS/CORS y secretos obtenidos de Secrets Manager.
 - Antes de actualizar el servicio API, ejecuta una tarea puntual usando la
   misma imagen API y sobrescribe el comando con:
@@ -68,3 +70,8 @@ Para una prueba temporal sin load balancer puedes:
 
 Esto funciona para una prueba, pero no crea endpoints estables. Para un entorno
 duradero necesitarás un ALB, API Gateway u otro punto de entrada estable y TLS.
+
+Para evitar depender de la IP efímera de la tarea web durante una prueba puntual,
+la API permite `CORS_ALLOW_ANY_ORIGIN=true`. Úsalo únicamente mientras se accede
+con IPs públicas temporales; conserva `FRONTEND_ORIGIN` como una URL válida y
+vuelve a `false` al usar un endpoint estable.

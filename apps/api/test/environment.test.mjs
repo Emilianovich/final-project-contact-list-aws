@@ -8,6 +8,12 @@ test('accepts independently configurable RDS credentials and strict TLS boolean'
   assert.equal(config.DB_HOST, 'example.rds.amazonaws.com'); assert.equal(config.DB_SSL, true); assert.equal(config.DB_SSL_CA_PATH, '/certs/rds.pem'); assert.equal(config.PORT, 3100);
   assert.equal(validateEnvironment({ ...valid(), DB_SSL: 'false' }).DB_SSL, false);
 });
+test('defaults CORS wildcard mode off and accepts only explicit boolean values', () => {
+  assert.equal(validateEnvironment(valid()).CORS_ALLOW_ANY_ORIGIN, false);
+  assert.equal(validateEnvironment({ ...valid(), CORS_ALLOW_ANY_ORIGIN: 'true' }).CORS_ALLOW_ANY_ORIGIN, true);
+  assert.equal(validateEnvironment({ ...valid(), CORS_ALLOW_ANY_ORIGIN: true }).CORS_ALLOW_ANY_ORIGIN, true);
+  assert.throws(() => validateEnvironment({ ...valid(), CORS_ALLOW_ANY_ORIGIN: 'yes' }));
+});
 test('fails startup for missing credentials, weak or shared JWT secrets and invalid ports', () => {
   for (const key of ['FRONTEND_ORIGIN', 'DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASSWORD', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET']) { const env = valid(); delete env[key]; assert.throws(() => validateEnvironment(env), new RegExp(key)); }
   for (const patch of [{ JWT_ACCESS_SECRET: 'weak' }, { JWT_REFRESH_SECRET: 'a'.repeat(48) }, { PORT: '65536' }, { DB_PORT: '0' }, { PORT: 'abc' }, { DB_SSL: 'yes' }]) assert.throws(() => validateEnvironment({ ...valid(), ...patch }));

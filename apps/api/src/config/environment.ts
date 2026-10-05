@@ -1,9 +1,13 @@
 import { z } from 'zod';
-const boolean = z.enum(['true', 'false']).default('false').transform(v => v === 'true');
+const boolean = z.preprocess(
+  value => typeof value === 'boolean' ? String(value) : value,
+  z.enum(['true', 'false']).default('false').transform(v => v === 'true'),
+);
 export const environmentSchema = z.object({
   NODE_ENV: z.enum(['development','test','production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   FRONTEND_ORIGIN: z.string().url().refine(v => { const u = new URL(v); return ['http:','https:'].includes(u.protocol) && u.origin === v; }, 'Expected an exact HTTP origin'),
+  CORS_ALLOW_ANY_ORIGIN: boolean,
   DB_HOST: z.string().min(1), DB_PORT: z.coerce.number().int().min(1).max(65535).default(5432),
   DB_NAME: z.string().min(1), DB_USER: z.string().min(1), DB_PASSWORD: z.string().min(1),
   DB_SSL: boolean, DB_SSL_CA_PATH: z.string().optional(),
