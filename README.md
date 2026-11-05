@@ -1,5 +1,15 @@
 # Cerca · Libreta de contactos
 
+## Proyecto final AWS: tres pipelines
+
+Infraestructura nueva `final-project-contact-list`, dos ALB, ECS privado y RDS.
+Las instrucciones de bootstrap, despliegue y limpieza están en
+[terraform/README.md](terraform/README.md); los tres GitHub Actions y su operación
+se explican en [pipelines/README.md](pipelines/README.md).
+Los workflows se ejecutan desde `.github/workflows/`. Primero infraestructura,
+después build manual y despliegue automático. No hacer push antes de preparar
+OIDC/environment AWS, porque un cambio de aplicación en main activa el build.
+
 Monorepo de la aplicación de contactos. React, NestJS y PostgreSQL trabajan
 juntos, y cada usuario solo puede acceder a sus propios contactos.
 

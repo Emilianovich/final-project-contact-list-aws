@@ -1,0 +1,5 @@
+bucket       = "terraform-state-817345470591"
+key          = "final-project-contact-list/dev/terraform.tfstate"
+region       = "us-east-2"
+encrypt      = true
+use_lockfile = true

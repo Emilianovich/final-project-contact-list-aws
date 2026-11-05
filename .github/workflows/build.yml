@@ -1,0 +1,51 @@
+name: '2 - Build and publish'
+on:
+  push:
+    branches: [main]
+    paths: ['apps/**', 'packages/**', 'database/**', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'docker-bake.hcl', '.dockerignore', '.github/workflows/build.yml', 'pipelines/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: aws-build-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: aws-dev
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: contactos
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: bash pipelines/test.sh
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_BUILD_ROLE_ARN }}
+          aws-region: us-east-2
+      - uses: aws-actions/amazon-ecr-login@v2
+      - uses: docker/setup-buildx-action@v3
+      - name: Build changed components and publish release manifest
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: python3 pipelines/build.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release
+          path: release.json
+          retention-days: 7

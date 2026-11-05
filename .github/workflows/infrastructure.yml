@@ -1,0 +1,53 @@
+name: '1 - Infrastructure'
+on:
+  pull_request:
+    paths: ['terraform/**', '.github/workflows/infrastructure.yml']
+  workflow_dispatch:
+    inputs:
+      action:
+        type: choice
+        options: [plan, apply, destroy]
+        default: plan
+        description: Terraform operation (destroy deletes the new database)
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: aws-dev
+  cancel-in-progress: false
+jobs:
+  terraform:
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'workflow_dispatch' && 'aws-dev' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.11.4
+      - run: terraform -chdir=terraform fmt -check
+      - uses: aws-actions/configure-aws-credentials@v4
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          role-to-assume: ${{ vars.AWS_INFRA_ROLE_ARN }}
+          aws-region: us-east-2
+      - name: Validate pull request without AWS credentials
+        if: github.event_name == 'pull_request'
+        run: |
+          terraform -chdir=terraform init -backend=false
+          terraform -chdir=terraform validate
+      - name: Initialize and plan
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          OPERATION: ${{ inputs.action }}
+        run: |
+          terraform -chdir=terraform init -backend-config=backend.hcl.example
+          terraform -chdir=terraform validate
+          if [ "$OPERATION" = destroy ]; then
+            terraform -chdir=terraform plan -destroy -var-file=terraform.tfvars.example -out=operation.tfplan
+          else
+            terraform -chdir=terraform plan -var-file=terraform.tfvars.example -out=operation.tfplan
+          fi
+      - name: Apply saved plan
+        if: github.event_name == 'workflow_dispatch' && inputs.action != 'plan'
+        run: terraform -chdir=terraform apply operation.tfplan

@@ -1,0 +1,4 @@
+# Initial infrastructure is created with services stopped. Deploy starts them after migration.
+web_image = "817345470591.dkr.ecr.us-east-2.amazonaws.com/final-project-contact-list-web:bootstrap"
+api_image = "817345470591.dkr.ecr.us-east-2.amazonaws.com/final-project-contact-list-api:bootstrap"
+service_count = 0

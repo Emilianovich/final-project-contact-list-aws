@@ -1,5 +1,11 @@
 # Construcción y entrega para ECS/Fargate
 
+> El proyecto final usa la infraestructura nueva documentada en
+> `terraform/README.md` y los tres GitHub Actions de `.github/workflows/`.
+> Usa dos repositorios ECR separados, ALB público para web y ALB interno para API,
+> con `BACKEND_UPSTREAM` generado automáticamente por Terraform.
+> Las instrucciones sin load balancer siguientes describen el ejercicio anterior.
+
 ECS no recibe un Dockerfile ni construye el repositorio. Fargate descarga una
 imagen ya construida desde ECR. Los Dockerfiles viven dentro de cada aplicación,
 pero su contexto de construcción es la raíz del monorepo porque ambos consumen
