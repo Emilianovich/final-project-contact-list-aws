@@ -27,7 +27,7 @@ locals {
 resource "aws_iam_role" "github" {
   for_each           = toset(["infra", "build", "deploy"])
   name               = "${local.prefix}-github-${each.key}"
-  assume_role_policy = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Principal = { Federated = local.provider_arn }, Action = "sts:AssumeRoleWithWebIdentity", Condition = { StringEquals = { "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com", "token.actions.githubusercontent.com:sub" = "repo:Emilianovich/final-project-contact-list-aws:environment:aws-dev" } } }] })
+  assume_role_policy = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Principal = { Federated = local.provider_arn }, Action = "sts:AssumeRoleWithWebIdentity", Condition = { StringEquals = { "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com", "token.actions.githubusercontent.com:sub" = "repo:Emilianovich@174401308/final-project-contact-list-aws@1447218904:environment:aws-dev" } } }] })
 }
 resource "aws_iam_role_policy" "state" {
   for_each = toset(["infra", "deploy"])
