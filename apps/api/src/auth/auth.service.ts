@@ -17,7 +17,8 @@ export class AuthService {
  constructor(private readonly database:DatabaseService,private readonly users:UsersService,private readonly jwt:JwtService,private readonly config:ConfigService){}
  async register(email:string,password:string){
    let user;try{user=await this.users.create(email,await hashPassword(password));}catch(error){if(isUniqueViolation(error))throw failure(409,'EMAIL_EXISTS','Este correo ya está registrado.');throw error;}
-   return this.startSession(user);
+   console.log(`New user registered!`)
+     return this.startSession(user);
  }
  async login(email:string,password:string){
    const user=await this.users.findByEmail(email);
