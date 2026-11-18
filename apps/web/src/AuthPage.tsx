@@ -16,6 +16,6 @@ export function AuthPage(){
       <button className="button primary auth-submit" disabled={busy}>{busy?<LoaderCircle className="spin" size={18}/>:<Check size={18}/>} {register?'Crear cuenta':'Iniciar sesión'}</button>
     </form>
     <button className="auth-switch" onClick={()=>{setRegister(!register);setError('')}}>{register?'Ya tengo una cuenta':'Crear una cuenta nueva'}</button>
-    <small>Hola para la prueba</small>
+    <small>17/11/2026</small>
   </section></main>;
 }
